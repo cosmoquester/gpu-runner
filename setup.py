@@ -9,6 +9,7 @@ setup(
     version=__version__,
     description="Run a command requiring GPU resources",
     long_description=long_description,
+    long_description_content_type="text/markdown",
     python_requires=">=3.7",
     install_requires=[
         "filelock",
