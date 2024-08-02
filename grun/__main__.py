@@ -118,12 +118,12 @@ def ensure_n_gpus(n_gpus: int, num_required_gpus: int, interval: int = 3) -> Lis
 
             first_pid = queue[0]["pid"]
             prioritized = first_pid == os.getpid()
-            if not prioritized:
-                if not psutil.pid_exists(first_pid):
-                    queue.pop(0)
-                    with open(GRUN_QUEUE, "w") as f:
-                        json.dump(queue, f, ensure_ascii=False, indent=2)
-                    print("[GRUN]", f"Invalid process id {first_pid} is removed from the queue.")
+            if not prioritized and not psutil.pid_exists(first_pid):
+                queue.pop(0)
+                with open(GRUN_QUEUE, "w") as f:
+                    json.dump(queue, f, ensure_ascii=False, indent=2)
+                print("[GRUN]", f"Invalid process id {first_pid} is removed from the queue.")
+
         if not prioritized:
             print("[GRUN]", "Waiting for the previous process to finish...")
             time.sleep(interval)
@@ -148,6 +148,15 @@ def ensure_n_gpus(n_gpus: int, num_required_gpus: int, interval: int = 3) -> Lis
 
         selected_gpus = [gpu for gpu, _ in locked_gpus]
         print("[GRUN]", f"Acquired {num_required_gpus} GPUs: {selected_gpus}")
+
+        with QUEUE_LOCK:
+            with open(GRUN_QUEUE, "r") as f:
+                queue = json.load(f)
+                queue.pop(0)
+
+            with open(GRUN_QUEUE, "w") as f:
+                json.dump(queue, f, ensure_ascii=False, indent=2)
+
         return locked_gpus
 
 
