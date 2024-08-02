@@ -12,6 +12,7 @@ from shutil import copytree
 from typing import List, Optional, Tuple
 
 import psutil
+from pynvml.nvml import NVMLError_NoPermission, NVMLError_NotSupported
 
 try:
     import nvidia_smi
@@ -54,8 +55,16 @@ def get_nonutilized_gpus(num_gpus: int) -> List[int]:
     available_gpus = []
     for i in range(num_gpus):
         handle = nvidia_smi.nvmlDeviceGetHandleByIndex(i)
-        util = nvidia_smi.nvmlDeviceGetUtilizationRates(handle)
-        mem = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
+
+        try:
+            util = nvidia_smi.nvmlDeviceGetUtilizationRates(handle)
+            mem = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
+        except (NVMLError_NoPermission, NVMLError_NotSupported):
+            print("[GRUN]", "Error: VGPU is not allow to access the GPU information.", file=sys.stderr)
+            print("[GRUN]", "Pass checking the GPU utilization.", file=sys.stderr)
+            available_gpus.append(i)
+            continue
+
         if util.gpu == 0 and mem.used / mem.total < 0.01:
             available_gpus.append(i)
     return available_gpus
