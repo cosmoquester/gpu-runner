@@ -1,15 +1,18 @@
 import argparse
-from datetime import datetime
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import traceback
-from typing import List, Tuple
+from datetime import datetime
+from shutil import copytree
+from typing import List, Optional, Tuple
 
 try:
-    from filelock import FileLock
     import nvidia_smi
+    from filelock import FileLock
 except ImportError:
     print("[GRUN]", "Error: Please install the required packages.", file=sys.stderr)
     print("[GRUN]", "pip install filelock nvidia-ml-py3", file=sys.stderr)
@@ -21,10 +24,13 @@ LOCK_DIR = os.path.join(os.path.expanduser("~"), ".grun")
 os.makedirs(LOCK_DIR, exist_ok=True)
 
 
+# fmt: off
 parser = argparse.ArgumentParser()
 parser.add_argument("-n", type=int, default=1, help="Number of GPUs to acquire.")
 parser.add_argument("--wait", "-w", action="store_true", help="Wait until the required number of GPUs are available.")
+parser.add_argument("--freeze", "-f", action="store_true", help="Freeze current working directory to ensure execute current code after wating.")
 parser.add_argument("commands", nargs=argparse.REMAINDER, help="Commands to run.")
+# fmt: on
 
 
 def get_nonutilized_gpus(num_gpus: int) -> List[int]:
@@ -106,8 +112,25 @@ def ensure_n_gpus(n_gpus: int, num_required_gpus: int, interval: int = 3) -> Lis
         return locked_gpus
 
 
+def cleanup(tmp_dir: Optional[str] = None, locked_gpus: Optional[List[Tuple[int, FileLock]]] = None) -> None:
+    if tmp_dir:
+        shutil.rmtree(tmp_dir)
+    if locked_gpus:
+        for _, lock in locked_gpus:
+            lock.release()
+
+
 def main():
     args = parser.parse_args()
+
+    if args.freeze:
+        tmp_dir = tempfile.mkdtemp(prefix="grun_")
+        dst_dir = os.path.join(tmp_dir, os.path.basename(os.getcwd()))
+        copytree(os.getcwd(), dst_dir)
+        os.chdir(dst_dir)
+        print("[GRUN]", f"Freeze current working directory to {tmp_dir}")
+    else:
+        tmp_dir = None
 
     num_gpus = nvidia_smi.nvmlDeviceGetCount()
     print("[GRUN]", f"Number of GPUs: {num_gpus}")
@@ -121,10 +144,8 @@ def main():
     if len(locked_gpus) < args.n:
         print("[GRUN]", f"{args.n} GPUs requested, but only {len(locked_gpus)} gpus {selected_gpus} available.")
 
-        for _, lock in locked_gpus:
-            lock.release()
-
         if not args.wait:
+            cleanup(tmp_dir, locked_gpus)
             exit(1)
 
         print("[GRUN]", "Start Waiting for more GPUs...")
@@ -145,12 +166,10 @@ def main():
         print("[GRUN]", "Error:", e, file=sys.stderr)
         traceback.print_exc()
 
-        for _, lock in locked_gpus:
-            lock.release()
+        cleanup(tmp_dir, locked_gpus)
         exit(1)
 
-    for _, lock in locked_gpus:
-        lock.release()
+    cleanup(tmp_dir, locked_gpus)
     print("[GRUN]", "Done.")
 
 
