@@ -1,2 +1,3 @@
 filelock
 nvidia-ml-py3
+psutil
