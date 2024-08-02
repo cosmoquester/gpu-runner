@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -10,6 +11,8 @@ from datetime import datetime
 from shutil import copytree
 from typing import List, Optional, Tuple
 
+import psutil
+
 try:
     import nvidia_smi
     from filelock import FileLock
@@ -20,8 +23,15 @@ except ImportError:
 
 nvidia_smi.nvmlInit()
 
-LOCK_DIR = os.path.join(os.path.expanduser("~"), ".grun")
-os.makedirs(LOCK_DIR, exist_ok=True)
+GRUN_DIR = os.path.join(os.path.expanduser("~"), ".grun")
+GRUN_QUEUE = os.path.join(GRUN_DIR, "queue.json")
+QUEUE_LOCK = FileLock(os.path.join(GRUN_DIR, "queue.json.lock"))
+os.makedirs(GRUN_DIR, exist_ok=True)
+
+with QUEUE_LOCK:
+    if not os.path.exists(GRUN_QUEUE):
+        with open(GRUN_QUEUE, "w") as f:
+            json.dump([], f)
 
 
 # fmt: off
@@ -60,7 +70,7 @@ def acquire_n_gpus(gpus: List[int], n: int) -> List[Tuple[int, FileLock]]:
     Returns:
         List[Tuple[int, FileLock]]: List of acquired GPUs and their locks.
     """
-    lock_files = [(gpu, os.path.join(LOCK_DIR, f"gpu_{gpu}.lock")) for gpu in gpus]
+    lock_files = [(gpu, os.path.join(GRUN_DIR, f"gpu_{gpu}.lock")) for gpu in gpus]
     locked_gpus = []
 
     for gpu, lock_file in lock_files:
@@ -90,6 +100,26 @@ def ensure_n_gpus(n_gpus: int, num_required_gpus: int, interval: int = 3) -> Lis
     """
 
     while True:
+        with QUEUE_LOCK:
+            with open(GRUN_QUEUE, "r") as f:
+                queue = json.load(f)
+            if not queue:
+                print("[GRUN]", "Queue is manipulated. Please try again.")
+                exit(1)
+
+            first_pid = queue[0]["pid"]
+            prioritized = first_pid == os.getpid()
+            if not prioritized:
+                if not psutil.pid_exists(first_pid):
+                    queue.pop(0)
+                    with open(GRUN_QUEUE, "w") as f:
+                        json.dump(queue, f, ensure_ascii=False, indent=2)
+                    print("[GRUN]", f"Invalid process id {first_pid} is removed from the queue.")
+        if not prioritized:
+            print("[GRUN]", "Waiting for the previous process to finish...")
+            time.sleep(interval)
+            continue
+
         available_gpus = get_nonutilized_gpus(n_gpus)
         if len(available_gpus) < num_required_gpus:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -147,6 +177,14 @@ def main():
         if not args.wait:
             cleanup(tmp_dir, locked_gpus)
             exit(1)
+
+        with QUEUE_LOCK:
+            with open(GRUN_QUEUE, "r") as f:
+                queue = json.load(f)
+                queue.append({"pid": os.getpid(), "command": " ".join(args.commands)})
+
+            with open(GRUN_QUEUE, "w") as f:
+                json.dump(queue, f, ensure_ascii=False, indent=2)
 
         print("[GRUN]", "Start Waiting for more GPUs...")
         locked_gpus = ensure_n_gpus(num_gpus, args.n)
