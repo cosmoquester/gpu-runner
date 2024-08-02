@@ -5,7 +5,7 @@ orbs:
 
 executors:
   python-executor:
-    working_directory: ~/python3-template
+    working_directory: ~/gpu-runner
     docker:
       - image: circleci/python:3.8
 
@@ -52,8 +52,8 @@ jobs:
           name: Run black, isort
           command: |
             source env/bin/activate
-            black --check sample_package tests
-            isort sample_package tests
+            black --check grun tests
+            isort grun tests
 
 workflows:
   main:
