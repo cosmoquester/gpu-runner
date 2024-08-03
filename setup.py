@@ -18,6 +18,6 @@ setup(
     ],
     entry_points={"console_scripts": ["grun=grun.__main__:main"]},
     url="https://github.com/cosmoquester/gpu-runner.git",
-    author="Park Sangjun",
+    author="Sangjun Park",
     packages=find_packages(exclude=["tests"]),
 )
