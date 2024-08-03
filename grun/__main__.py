@@ -101,6 +101,8 @@ def ensure_n_gpus(n_gpus: int, num_required_gpus: int, interval: int = 3) -> Lis
     Returns:
         List[Tuple[int, FileLock]]: List of acquired GPUs and their locks.
     """
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("[GRUN]", f" [{timestamp}] Waiting for {num_required_gpus} GPUs...")
 
     while True:
         with QUEUE_LOCK:
@@ -119,14 +121,11 @@ def ensure_n_gpus(n_gpus: int, num_required_gpus: int, interval: int = 3) -> Lis
                 print("[GRUN]", f"Invalid process id {first_pid} is removed from the queue.")
 
         if not prioritized:
-            print("[GRUN]", "Waiting for the previous process to finish...")
             time.sleep(interval)
             continue
 
         available_gpus = get_nonutilized_gpus(n_gpus)
         if len(available_gpus) < num_required_gpus:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print("[GRUN]", f"[{timestamp}]", f"Waiting for {num_required_gpus} GPUs...")
             time.sleep(interval)
             continue
 
@@ -134,9 +133,6 @@ def ensure_n_gpus(n_gpus: int, num_required_gpus: int, interval: int = 3) -> Lis
         if len(locked_gpus) < num_required_gpus:
             for _, lock in locked_gpus:
                 lock.release()
-
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print("[GRUN]", f"[{timestamp}]", f"Waiting for {num_required_gpus} GPUs...")
             time.sleep(interval)
             continue
 
