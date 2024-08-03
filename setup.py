@@ -15,6 +15,7 @@ setup(
         "filelock",
         "nvidia-ml-py3",
         "psutil",
+        "pynvml",
     ],
     entry_points={"console_scripts": ["grun=grun.__main__:main"]},
     url="https://github.com/cosmoquester/gpu-runner.git",
