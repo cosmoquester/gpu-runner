@@ -11,16 +11,10 @@ from datetime import datetime
 from shutil import copytree
 from typing import List, Optional, Tuple
 
+import nvidia_smi
 import psutil
+from filelock import FileLock, Timeout
 from pynvml.nvml import NVMLError_NoPermission, NVMLError_NotSupported
-
-try:
-    import nvidia_smi
-    from filelock import FileLock
-except ImportError:
-    print("[GRUN]", "Error: Please install the required packages.", file=sys.stderr)
-    print("[GRUN]", "pip install filelock nvidia-ml-py3", file=sys.stderr)
-    exit(1)
 
 nvidia_smi.nvmlInit()
 
@@ -87,7 +81,7 @@ def acquire_n_gpus(gpus: List[int], n: int) -> List[Tuple[int, FileLock]]:
 
         try:
             lock.acquire(timeout=0.1)
-        except:
+        except Timeout:
             continue
 
         locked_gpus.append((gpu, lock))
@@ -206,6 +200,7 @@ def main():
 
         print("[GRUN]", "Start Waiting for more GPUs...")
         locked_gpus = ensure_n_gpus(num_gpus, args.n)
+        selected_gpus = [gpu for gpu, _ in locked_gpus]
 
     print("[GRUN]", f"Selected GPUs: {selected_gpus}")
 
