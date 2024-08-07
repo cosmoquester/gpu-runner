@@ -17,6 +17,7 @@ from filelock import FileLock, Timeout
 from pynvml.nvml import NVMLError_NoPermission, NVMLError_NotSupported
 
 nvidia_smi.nvmlInit()
+vgpu_warning = False
 
 GRUN_DIR = os.path.join(os.path.expanduser("~"), ".grun")
 GRUN_QUEUE = os.path.join(GRUN_DIR, "queue.json")
@@ -54,8 +55,11 @@ def get_nonutilized_gpus(num_gpus: int) -> List[int]:
             util = nvidia_smi.nvmlDeviceGetUtilizationRates(handle)
             mem = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
         except (NVMLError_NoPermission, NVMLError_NotSupported):
-            print("[GRUN]", "Error: VGPU is not allow to access the GPU information.", file=sys.stderr)
-            print("[GRUN]", "Pass checking the GPU utilization.", file=sys.stderr)
+            if not vgpu_warning:
+                global vgpu_warning
+                vgpu_warning = True
+                print("[GRUN]", "Error: VGPU is not allow to access the GPU information.", file=sys.stderr)
+                print("[GRUN]", "Pass checking the GPU utilization.", file=sys.stderr)
             available_gpus.append(i)
             continue
 
