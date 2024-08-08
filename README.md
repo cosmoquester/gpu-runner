@@ -9,18 +9,20 @@ GPU Runner is a Python package that provides a simple way to run a function on a
 ## Installation
 
 ```bash
-pip install gpu-runner
+$ pip install gpu-runner
 ```
 
 I recommend using [pipx](https://pipx.pypa.io/stable/installation/) to install this package with independency.
 
 ## Usage
 
+### Run command on a GPU
+
 ```bash
 $ CUDA_VISIBLE_DEVICES=0 python train.py --args 1 2 3
 ~~~~~~~~~~
 ```
-- this is a simple way to run a function on a GPU.
+- this is a traditional way to run a function on a GPU.
 - but, it's hassle to check the available GPU and set the `CUDA_VISIBLE_DEVICES` environment variable.
 
 ```bash
@@ -37,6 +39,8 @@ $ grun python train.py --args 1 2 3 --kwargs key1 value1 key2 value2
 - just use `grun` command if you want to run a function on a GPU.
 - `grun` will automatically select the available GPU.
 
+### Run command on multiple GPUs
+
 ```bash
 $ grun -n 2 python train.py --args 1 2 3 --kwargs key1 value1 key2 value2 --device 0
 
@@ -48,6 +52,8 @@ $ grun -n 2 python train.py --args 1 2 3 --kwargs key1 value1 key2 value2 --devi
 [GRUN] Done.
 ```
 - `-n` option is the number of GPUs to use.
+
+### Run prolonged command
 
 ```bash
 # Without wating option (-w)
@@ -72,6 +78,8 @@ $ grun -n 8 -w python train.py --args 1 2 3 --kwargs key1 value1 key2 value2 --d
 - with `-w` option, grun will wait to get the GPU resources until they are available.
 - it automatically waits for the resources to be available and then runs the command.
 - the execution order of the commands with `-w` option is guaranteed.
+
+### Freeze current working directory
 
 ```bash
 $ grun -f python train.py --args 1 2 3 --kwargs key1 value1 key2 value2 --device 0

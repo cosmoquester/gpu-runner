@@ -106,7 +106,7 @@ def ensure_n_gpus(n_gpus: int, num_required_gpus: int, interval: int = 3) -> Lis
         List[Tuple[int, FileLock]]: List of acquired GPUs and their locks.
     """
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print("[GRUN]", f" [{timestamp}] Waiting for {num_required_gpus} GPUs...")
+    print("[GRUN]", f"[{timestamp}] Waiting for {num_required_gpus} GPUs...")
 
     while True:
         with QUEUE_LOCK:
