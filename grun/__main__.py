@@ -1,4 +1,5 @@
 import argparse
+import atexit
 import json
 import os
 import shutil
@@ -154,9 +155,7 @@ def ensure_n_gpus(n_gpus: int, num_required_gpus: int, interval: int = 3) -> Lis
         return locked_gpus
 
 
-def cleanup(tmp_dir: Optional[str] = None, locked_gpus: Optional[List[Tuple[int, FileLock]]] = None) -> None:
-    if tmp_dir:
-        shutil.rmtree(tmp_dir)
+def release_gpus(locked_gpus: Optional[List[Tuple[int, FileLock]]] = None) -> None:
     if locked_gpus:
         for _, lock in locked_gpus:
             lock.release()
@@ -171,6 +170,7 @@ def main():
         copytree(os.getcwd(), dst_dir)
         os.chdir(dst_dir)
         print("[GRUN]", f"Freeze current working directory to {tmp_dir}")
+        atexit.register(shutil.rmtree, tmp_dir)
     else:
         tmp_dir = None
 
@@ -187,7 +187,7 @@ def main():
         print("[GRUN]", f"{args.n} GPUs requested, but only {len(locked_gpus)} gpus {selected_gpus} available.")
 
         if not args.wait:
-            cleanup(tmp_dir, locked_gpus)
+            release_gpus(locked_gpus)
             exit(1)
 
         with QUEUE_LOCK:
@@ -218,7 +218,7 @@ def main():
         traceback.print_exc()
         exit(1)
     finally:
-        cleanup(tmp_dir, locked_gpus)
+        release_gpus(locked_gpus)
 
     print("[GRUN]", "Done.")
 
