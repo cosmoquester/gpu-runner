@@ -216,11 +216,10 @@ def main():
     except Exception as e:
         print("[GRUN]", "Error:", e, file=sys.stderr)
         traceback.print_exc()
-
-        cleanup(tmp_dir, locked_gpus)
         exit(1)
+    finally:
+        cleanup(tmp_dir, locked_gpus)
 
-    cleanup(tmp_dir, locked_gpus)
     print("[GRUN]", "Done.")
 
 
