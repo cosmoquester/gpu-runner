@@ -41,3 +41,6 @@ class TaskQueue:
     @staticmethod
     def dequeue() -> Task:
         return TaskQueue._queue_info.pop(0)
+
+
+queue = TaskQueue()
