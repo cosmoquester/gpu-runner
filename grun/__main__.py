@@ -1,6 +1,5 @@
 import argparse
 import atexit
-import json
 import os
 import shutil
 import subprocess
@@ -17,18 +16,13 @@ import psutil
 from filelock import FileLock, Timeout
 from pynvml.nvml import NVMLError_NoPermission, NVMLError_NotSupported
 
-nvidia_smi.nvmlInit()
+from .constant import GRUN_DIR
+from .queue import TaskQueue
+from .utils import initilize
+
+initilize()
+
 vgpu_warning = False
-
-GRUN_DIR = os.path.join(os.path.expanduser("~"), ".grun")
-GRUN_QUEUE = os.path.join(GRUN_DIR, "queue.json")
-QUEUE_LOCK = FileLock(os.path.join(GRUN_DIR, "queue.json.lock"))
-os.makedirs(GRUN_DIR, exist_ok=True)
-
-with QUEUE_LOCK:
-    if not os.path.exists(GRUN_QUEUE):
-        with open(GRUN_QUEUE, "w") as f:
-            json.dump([], f)
 
 
 # fmt: off
@@ -56,8 +50,8 @@ def get_nonutilized_gpus(num_gpus: int) -> List[int]:
             util = nvidia_smi.nvmlDeviceGetUtilizationRates(handle)
             mem = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
         except (NVMLError_NoPermission, NVMLError_NotSupported):
+            global vgpu_warning
             if not vgpu_warning:
-                global vgpu_warning
                 vgpu_warning = True
                 print("[GRUN]", "Error: VGPU is not allow to access the GPU information.", file=sys.stderr)
                 print("[GRUN]", "Pass checking the GPU utilization.", file=sys.stderr)
@@ -110,19 +104,15 @@ def ensure_n_gpus(n_gpus: int, num_required_gpus: int, interval: int = 3) -> Lis
     print("[GRUN]", f"[{timestamp}] Waiting for {num_required_gpus} GPUs...")
 
     while True:
-        with QUEUE_LOCK:
-            with open(GRUN_QUEUE, "r") as f:
-                queue = json.load(f)
-            if not queue:
+        with TaskQueue() as queue:
+            if len(queue) < 1:
                 print("[GRUN]", "Queue is manipulated. Please try again.")
                 exit(1)
 
             first_pid = queue[0]["pid"]
             prioritized = first_pid == os.getpid()
             if not prioritized and not psutil.pid_exists(first_pid):
-                queue.pop(0)
-                with open(GRUN_QUEUE, "w") as f:
-                    json.dump(queue, f, ensure_ascii=False, indent=2)
+                queue.dequeue()
                 print("[GRUN]", f"Invalid process id {first_pid} is removed from the queue.")
 
         if not prioritized:
@@ -144,13 +134,8 @@ def ensure_n_gpus(n_gpus: int, num_required_gpus: int, interval: int = 3) -> Lis
         selected_gpus = [gpu for gpu, _ in locked_gpus]
         print("[GRUN]", f"Acquired {num_required_gpus} GPUs: {selected_gpus}")
 
-        with QUEUE_LOCK:
-            with open(GRUN_QUEUE, "r") as f:
-                queue = json.load(f)
-                queue.pop(0)
-
-            with open(GRUN_QUEUE, "w") as f:
-                json.dump(queue, f, ensure_ascii=False, indent=2)
+        with TaskQueue() as queue:
+            queue.dequeue()
 
         return locked_gpus
 
@@ -190,13 +175,8 @@ def main():
             release_gpus(locked_gpus)
             exit(1)
 
-        with QUEUE_LOCK:
-            with open(GRUN_QUEUE, "r") as f:
-                queue = json.load(f)
-                queue.append({"pid": os.getpid(), "command": " ".join(args.commands)})
-
-            with open(GRUN_QUEUE, "w") as f:
-                json.dump(queue, f, ensure_ascii=False, indent=2)
+        with TaskQueue() as queue:
+            queue.enqueue(" ".join(args.commands))
 
         print("[GRUN]", "Start Waiting for more GPUs...")
         locked_gpus = ensure_n_gpus(num_gpus, args.n)
