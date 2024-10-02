@@ -17,7 +17,7 @@ from filelock import FileLock, Timeout
 from pynvml.nvml import NVMLError_NoPermission, NVMLError_NotSupported
 
 from .constant import GRUN_DIR
-from .queue import queue
+from .queue import TaskQueue
 from .utils import initilize
 
 initilize()
@@ -104,7 +104,7 @@ def ensure_n_gpus(n_gpus: int, num_required_gpus: int, interval: int = 3) -> Lis
     print("[GRUN]", f"[{timestamp}] Waiting for {num_required_gpus} GPUs...")
 
     while True:
-        with queue:
+        with TaskQueue() as queue:
             if len(queue) < 1:
                 print("[GRUN]", "Queue is manipulated. Please try again.")
                 exit(1)
@@ -134,7 +134,7 @@ def ensure_n_gpus(n_gpus: int, num_required_gpus: int, interval: int = 3) -> Lis
         selected_gpus = [gpu for gpu, _ in locked_gpus]
         print("[GRUN]", f"Acquired {num_required_gpus} GPUs: {selected_gpus}")
 
-        with queue:
+        with TaskQueue() as queue:
             queue.dequeue()
 
         return locked_gpus
@@ -175,7 +175,7 @@ def main():
             release_gpus(locked_gpus)
             exit(1)
 
-        with queue:
+        with TaskQueue() as queue:
             queue.enqueue(" ".join(args.commands))
 
         print("[GRUN]", "Start Waiting for more GPUs...")
