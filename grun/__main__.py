@@ -58,7 +58,7 @@ def get_nonutilized_gpus(num_gpus: int) -> List[int]:
             available_gpus.append(i)
             continue
 
-        if util.gpu == 0 and mem.used / mem.total < 0.01:
+        if util.gpu == 0 and mem.used / mem.total < 0.03:
             available_gpus.append(i)
     return available_gpus
 
