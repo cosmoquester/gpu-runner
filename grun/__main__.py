@@ -192,6 +192,7 @@ def main():
             command,
             shell=True,
             env=dict(os.environ, CUDA_VISIBLE_DEVICES=",".join(map(str, selected_gpus))),
+            executable=os.environ.get("SHELL", "/bin/bash"),
         )
     except Exception as e:
         print("[GRUN]", "Error:", e, file=sys.stderr)
