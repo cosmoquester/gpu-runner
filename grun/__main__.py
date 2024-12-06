@@ -14,7 +14,7 @@ from typing import List, Optional, Tuple
 import nvidia_smi
 import psutil
 from filelock import FileLock, Timeout
-from pynvml.nvml import NVMLError_NoPermission, NVMLError_NotSupported
+from pynvml import NVMLError_NoPermission, NVMLError_NotSupported
 
 from .constant import GRUN_DIR
 from .queue import TaskQueue
